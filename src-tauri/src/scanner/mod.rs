@@ -51,6 +51,8 @@ pub async fn run_scan(app_handle: AppHandle) -> Result<ScanResult> {
     join_set.spawn(recipes::macos::scan_trash());
     join_set.spawn(recipes::macos::scan_old_downloads());
     join_set.spawn(recipes::macos::scan_time_machine_snapshots());
+    join_set.spawn(recipes::macos::scan_documents());
+    join_set.spawn(recipes::macos::scan_app_data());
 
     let mut all_items: Vec<ScanItem> = Vec::new();
 

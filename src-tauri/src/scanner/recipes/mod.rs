@@ -12,16 +12,26 @@ pub mod xcode;
 
 use anyhow::Result;
 use sha2::{Digest, Sha256};
+use std::fs::Metadata;
+use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use walkdir::WalkDir;
 
-/// Calculate total size of a directory by walking all files.
+/// Physical (on-disk) size of a file in bytes, accounting for APFS sparse
+/// files and clones. Uses st_blocks (512-byte units) like `du`. For non-sparse
+/// files this matches the logical size; for sparse files (VM disks, OrbStack
+/// volumes, Docker images) it's the actual disk usage.
+pub fn physical_size(metadata: &Metadata) -> u64 {
+    metadata.blocks() * 512
+}
+
+/// Calculate total on-disk size of a directory by walking all files.
 pub fn calculate_dir_size(path: &Path) -> u64 {
     WalkDir::new(path)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
-        .map(|e| e.metadata().map(|m| m.len()).unwrap_or(0))
+        .map(|e| e.metadata().map(|m| physical_size(&m)).unwrap_or(0))
         .sum()
 }
 

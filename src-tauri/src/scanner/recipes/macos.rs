@@ -276,7 +276,7 @@ pub async fn scan_old_downloads() -> Result<Vec<ScanItem>> {
                                 let size = if meta.is_dir() {
                                     super::calculate_dir_size(&e.path())
                                 } else {
-                                    meta.len()
+                                    super::physical_size(&meta)
                                 };
                                 Some((e.path(), size))
                             } else {
@@ -306,6 +306,147 @@ pub async fn scan_old_downloads() -> Result<Vec<ScanItem>> {
         category: ScanCategory::OldDownloads,
         last_modified: None,
     }])
+}
+
+/// Scan for large user files anywhere in the home folder. Mirrors macOS's
+/// "Documents" category in System Settings → Storage, which surfaces large
+/// files of any kind that aren't claimed by other categories.
+pub async fn scan_documents() -> Result<Vec<ScanItem>> {
+    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("No home directory"))?;
+
+    const MIN_FILE_SIZE: u64 = 50_000_000; // 50 MB
+
+    // Directory names to skip — already covered by other recipes, or system
+    // data the user shouldn't be cleaning here.
+    const SKIP_DIR_NAMES: &[&str] = &[
+        "Library",
+        "node_modules",
+        "target",
+        "venv",
+        "build",
+        "dist",
+        ".next",
+        "DerivedData",
+        "Pods",
+        ".Trash",
+    ];
+
+    let large_files: Vec<(std::path::PathBuf, u64, Option<i64>)> = tokio::task::spawn_blocking({
+        let h = home.clone();
+        move || -> Vec<(std::path::PathBuf, u64, Option<i64>)> {
+            walkdir::WalkDir::new(&h)
+                .follow_links(false)
+                .into_iter()
+                .filter_entry(|e| {
+                    let name = e.file_name().to_string_lossy();
+                    if e.depth() > 0 && name.starts_with('.') {
+                        return false;
+                    }
+                    !SKIP_DIR_NAMES.iter().any(|s| name == *s)
+                })
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_file())
+                .filter_map(|e| {
+                    let meta = e.metadata().ok()?;
+                    let size = super::physical_size(&meta);
+                    if size < MIN_FILE_SIZE {
+                        return None;
+                    }
+                    let modified = meta
+                        .modified()
+                        .ok()
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|d| d.as_secs() as i64);
+                    Some((e.path().to_path_buf(), size, modified))
+                })
+                .collect()
+        }
+    })
+    .await?;
+
+    let items = large_files
+        .into_iter()
+        .map(|(path, size, modified)| {
+            let rel = path.strip_prefix(&home).unwrap_or(&path);
+            let display_name = rel.to_string_lossy().to_string();
+            let path_str = path.to_string_lossy().to_string();
+            ScanItem {
+                id: hash_id(&path_str, "documents"),
+                path: path_str,
+                display_name,
+                description: "Large personal file - review carefully before removing".to_string(),
+                size_bytes: size,
+                safety: SafetyLevel::Yellow,
+                category: ScanCategory::Documents,
+                last_modified: modified,
+            }
+        })
+        .collect();
+
+    Ok(items)
+}
+
+/// Scan per-app data folders in Library (Application Support, Group
+/// Containers, Containers). These are app sandboxes — Slack chat history,
+/// Discord cache, Telegram media, etc. Risky to remove (yellow), but
+/// frequently the largest reclaimable category on dev Macs.
+pub async fn scan_app_data() -> Result<Vec<ScanItem>> {
+    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("No home directory"))?;
+    let mut items = Vec::new();
+
+    const MIN_APP_SIZE: u64 = 500_000_000; // 500 MB
+
+    let parents = [
+        (home.join("Library/Application Support"), "Application Support"),
+        (home.join("Library/Group Containers"), "Group Containers"),
+        (home.join("Library/Containers"), "Containers"),
+    ];
+
+    for (parent, parent_label) in parents {
+        if !parent.exists() {
+            continue;
+        }
+
+        let entries: Vec<std::path::PathBuf> = tokio::task::spawn_blocking({
+            let p = parent.clone();
+            move || -> Vec<std::path::PathBuf> {
+                std::fs::read_dir(&p)
+                    .ok()
+                    .map(|rd| {
+                        rd.filter_map(|e| e.ok())
+                            .filter(|e| e.file_type().map(|ft| ft.is_dir()).unwrap_or(false))
+                            .map(|e| e.path())
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            }
+        })
+        .await?;
+
+        for path in entries {
+            let size = calculate_dir_size_async(&path).await?;
+            if size < MIN_APP_SIZE {
+                continue;
+            }
+            let app_name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "Unknown".to_string());
+            let path_str = path.to_string_lossy().to_string();
+            items.push(ScanItem {
+                id: hash_id(&path_str, "app_data"),
+                path: path_str,
+                display_name: format!("{} ({})", app_name, parent_label),
+                description: "App sandbox data - removing may sign you out or lose app state".to_string(),
+                size_bytes: size,
+                safety: SafetyLevel::Yellow,
+                category: ScanCategory::AppData,
+                last_modified: get_last_modified(&path),
+            });
+        }
+    }
+
+    Ok(items)
 }
 
 /// Scan for Time Machine local snapshots.

@@ -29,7 +29,9 @@ export type ScanCategory =
   | "ios_backups"
   | "trash"
   | "old_downloads"
-  | "time_machine_snapshots";
+  | "time_machine_snapshots"
+  | "documents"
+  | "app_data";
 
 export interface ScanItem {
   id: string;

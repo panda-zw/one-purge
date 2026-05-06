@@ -34,6 +34,8 @@ pub enum ScanCategory {
     Trash,
     OldDownloads,
     TimeMachineSnapshots,
+    Documents,
+    AppData,
 }
 
 impl ScanCategory {
@@ -68,6 +70,8 @@ impl ScanCategory {
             Self::Trash => "Trash",
             Self::OldDownloads => "Old Downloads",
             Self::TimeMachineSnapshots => "Time Machine Local Snapshots",
+            Self::Documents => "Large Documents",
+            Self::AppData => "Per-App Data",
         }
     }
 
@@ -102,6 +106,8 @@ impl ScanCategory {
             Self::Trash => "Files you've already deleted but haven't emptied from Trash yet.",
             Self::OldDownloads => "Files in your Downloads folder older than 90 days.",
             Self::TimeMachineSnapshots => "Local Time Machine snapshots stored on this disk. New snapshots are created automatically.",
+            Self::Documents => "Large personal files anywhere in your home folder, mirroring macOS Storage's Documents category. Not regenerable - review carefully before removing.",
+            Self::AppData => "Per-app data folders in Library (Slack, Discord, etc.). Removing may sign you out, lose chat history, or reset app state. The app rebuilds the folder on next launch.",
         }
     }
 
@@ -136,6 +142,8 @@ impl ScanCategory {
             Self::Trash => "trash",
             Self::OldDownloads => "old_downloads",
             Self::TimeMachineSnapshots => "time_machine_snapshots",
+            Self::Documents => "documents",
+            Self::AppData => "app_data",
         }
     }
 
@@ -170,6 +178,8 @@ impl ScanCategory {
             "trash" => Self::Trash,
             "old_downloads" => Self::OldDownloads,
             "time_machine_snapshots" => Self::TimeMachineSnapshots,
+            "documents" => Self::Documents,
+            "app_data" => Self::AppData,
             _ => Self::SystemCaches,
         }
     }

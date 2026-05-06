@@ -115,6 +115,14 @@ const sections = [
         label: "Time Machine Snapshots",
         desc: "Local Time Machine snapshots on this disk. New ones are created automatically.",
       },
+      {
+        label: "Documents",
+        desc: "Large personal files (over 50 MB) anywhere in your home folder, matching macOS Storage's Documents category. Not regenerable - review carefully before removing.",
+      },
+      {
+        label: "App Data",
+        desc: "Per-app sandbox folders in Library larger than 500 MB - Slack, Discord, Telegram, etc. Removing may sign you out or lose chat history. The app rebuilds the folder on next launch.",
+      },
     ],
   },
   {
