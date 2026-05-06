@@ -11,7 +11,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:build": "export $(cat .env | xargs) && tauri build"
+    "tauri:build": "set -a && . ./.env && set +a && tauri build"
   },
   "keywords": [
     "macos",
