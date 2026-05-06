@@ -10,13 +10,19 @@ interface Props {
 
 export function CategoryCard({ category }: Props) {
   const [expanded, setExpanded] = useState(true);
-  const { selectedIds, toggleItem, toggleCategory } = useScanStore();
+  const { selectedIds, toggleItem, toggleCategory, toggleCategoryAll } =
+    useScanStore();
 
   const greenItems = category.items.filter((i) => i.safety === "green");
+  const yellowItems = category.items.filter((i) => i.safety === "yellow");
+  const selectableItems = category.items.filter((i) => i.safety !== "red");
   const allSelected =
     greenItems.length > 0 && greenItems.every((i) => selectedIds.has(i.id));
   const someSelected =
     !allSelected && greenItems.some((i) => selectedIds.has(i.id));
+  const allIncludingYellowSelected =
+    selectableItems.length > 0 &&
+    selectableItems.every((i) => selectedIds.has(i.id));
 
   return (
     <div className="category-card">
@@ -40,6 +46,19 @@ export function CategoryCard({ category }: Props) {
           </div>
         </div>
         <div className="category-card__right">
+          {yellowItems.length > 0 && (
+            <button
+              type="button"
+              className="category-card__select-all"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleCategoryAll(category);
+              }}
+              title="Select every item in this category, including yellow items that need review"
+            >
+              {allIncludingYellowSelected ? "Deselect all" : "Select all"}
+            </button>
+          )}
           <span className="category-card__size">
             {formatBytes(category.total_bytes)}
           </span>

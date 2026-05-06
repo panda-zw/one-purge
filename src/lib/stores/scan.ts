@@ -11,6 +11,7 @@ interface ScanState {
   loadCachedScan: () => Promise<void>;
   toggleItem: (id: string) => void;
   toggleCategory: (category: CategoryResult) => void;
+  toggleCategoryAll: (category: CategoryResult) => void;
   selectAllGreen: () => void;
   clearSelection: () => void;
 }
@@ -69,6 +70,19 @@ export const useScanStore = create<ScanState>((set, get) => ({
     const greenItems = category.items.filter((i) => i.safety === "green");
     const allSelected = greenItems.every((i) => next.has(i.id));
     for (const item of greenItems) {
+      if (allSelected) next.delete(item.id);
+      else next.add(item.id);
+    }
+    set({ selectedIds: next });
+  },
+
+  toggleCategoryAll(category: CategoryResult) {
+    const { selectedIds } = get();
+    const next = new Set(selectedIds);
+    const selectable = category.items.filter((i) => i.safety !== "red");
+    const allSelected =
+      selectable.length > 0 && selectable.every((i) => next.has(i.id));
+    for (const item of selectable) {
       if (allSelected) next.delete(item.id);
       else next.add(item.id);
     }
